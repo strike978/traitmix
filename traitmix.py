@@ -236,116 +236,156 @@ def run_nnls(
     }).sort_values('Proportion', ascending=False)
 
 
+# ── Helper: render reference populations block ─────────────────────────────────
+def render_ref_populations():
+    ref_html = '<div class="ref-populations"><h4>Populations used in analysis</h4>'
+    for region, groups in REF_GROUPS.items():
+        color = REGION_COLOURS.get(region, '#7a749a')
+        ref_html += (
+            f'<div class="ref-region">'
+            f'<div class="ref-region-name" style="color: {color};">{region}</div>'
+            f'<div class="ref-groups">{", ".join(groups)}</div>'
+            f'</div>'
+        )
+    ref_html += '</div>'
+    st.markdown(ref_html, unsafe_allow_html=True)
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    st.markdown("""
-    <div class="title-block">
-        <h1>traitmix</h1>
-        <p>NNLS ancestry estimation based on phenotypical SNPs · 1000G + HGDP reference</p>
-        <div class="privacy-notice">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-            <span>Your DNA data is processed locally and never stored on our servers</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
+    # Load reference panel and SNP columns at the very start
     with st.spinner("Loading reference panel…"):
         try:
             df_raw = pd.read_csv("113_no_outliers.csv")
         except Exception as e:
             st.error(f"Could not load reference panel: {e}")
             return
-
     df = df_raw[df_raw['source'].str.lower().isin(['1000g', 'hgdp'])].copy()
     snp_cols = [c for c in df.columns if c.startswith('rs')]
 
+    st.markdown("""
+    <div class="title-block">
+        <h1>traitmix</h1>
+        <p>NNLS ancestry estimation based on phenotypical SNPs · 1000G + HGDP reference</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── File uploader ──────────────────────────────────────────────────────────
+    raw_file = st.file_uploader(
+        "Upload your 23andMe or Ancestry raw data (.txt)", type=["txt"])
+
+    if not raw_file:
+        st.markdown(
+            '<div class="info-box">'
+            'Upload your raw DNA file above to run admixture estimation.<br>'
+            'Supported formats: 23andMe v3/v5, Ancestry.com raw data.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("### reference populations")
+        render_ref_populations()
+        return
+
+    # ── Build reference matrix ─────────────────────────────────────────────────
     with st.spinner("Building reference AF matrix…"):
         X, minor_alleles, region_names = build_ref_matrix(
             df, snp_cols, REF_GROUPS)
         col_means = X.mean(axis=0)
 
+    # Only count SNPs that have a valid minor allele as "in panel"
+    # (SNPs where minor is None are uninformative and skipped during matching)
+    valid_snp_count = int(np.sum(minor_alleles != None))
+
+    # ── Summary metrics ────────────────────────────────────────────────────────
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(
-            f'<div class="metric-card"><div class="metric-label">SNPs in panel</div><div class="metric-value">{len(snp_cols):,}</div></div>', unsafe_allow_html=True)
+            f'<div class="metric-card">'
+            f'<div class="metric-label">SNPs in panel</div>'
+            f'<div class="metric-value">{valid_snp_count:,}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with col2:
         st.markdown(
-            f'<div class="metric-card"><div class="metric-label">reference regions</div><div class="metric-value">{len(region_names)}</div></div>', unsafe_allow_html=True)
+            f'<div class="metric-card">'
+            f'<div class="metric-label">reference regions</div>'
+            f'<div class="metric-value">{len(region_names)}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
     with col3:
         n_groups = sum(len(v) for v in REF_GROUPS.values())
         st.markdown(
-            f'<div class="metric-card"><div class="metric-label">reference groups</div><div class="metric-value">{n_groups}</div></div>', unsafe_allow_html=True)
+            f'<div class="metric-card">'
+            f'<div class="metric-label">reference groups</div>'
+            f'<div class="metric-value">{n_groups}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
-    raw_file = st.file_uploader(
-        "Upload your 23andMe or Ancestry raw data (.txt)", type=["txt"])
 
-    if not raw_file:
-        st.markdown("""
-        <div class="info-box">
-          Upload your raw DNA file above to run admixture estimation.<br>
-          Supported formats: 23andMe v3/v5, Ancestry.com raw data.
-        </div>
-        """, unsafe_allow_html=True)
-        return
-
+    # ── Parse user file ────────────────────────────────────────────────────────
     with st.spinner("Parsing your genotype file…"):
         user_snps = parse_raw_file(raw_file)
 
     y, n_matched = encode_user(user_snps, snp_cols, minor_alleles, col_means)
-    pct_matched = n_matched / len(snp_cols) * 100 if snp_cols else 0
+    # Denominator is valid_snp_count — SNPs where minor is None are never
+    # matchable and should not count against the user's match rate.
+    pct_matched = n_matched / valid_snp_count * 100 if valid_snp_count else 0
 
-    st.markdown(f"""
-    <div class="metric-card" style="margin-bottom:1.5rem;">
-      <div class="metric-label">SNPs matched to reference panel</div>
-      <div class="metric-value">{n_matched:,}
-        <span style="font-size:1rem; color:#7a749a;">/ {len(snp_cols):,} &nbsp;({pct_matched:.1f}%)</span>
-      </div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="metric-card" style="margin-bottom:1.5rem;">'
+        f'<div class="metric-label">SNPs matched to reference panel</div>'
+        f'<div class="metric-value">{n_matched:,}'
+        f'<span style="font-size:1rem; color:#7a749a;"> / {valid_snp_count:,}&nbsp;({pct_matched:.1f}%)</span>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     if pct_matched < 5:
         st.warning(
             "Fewer than 5% of panel SNPs matched. Results may be unreliable.")
 
+    # ── Run NNLS ───────────────────────────────────────────────────────────────
     with st.spinner("Running NNLS admixture…"):
         mix_df = run_nnls(X, y, region_names)
 
-        st.markdown("## ancestry results")
-        st.markdown("""
-        <div class="info-box">
-            <b>How are your ancestry results calculated?</b><br>
-            We compare your DNA to a set of reference populations for each region. For each region, we average the DNA patterns from all its reference groups. Then, we figure out what combination of these regions best matches your DNA, using a method that ensures all percentages are positive and add up to 100%.<br><br>
-            <i>In short: Your results show the mix of reference regions that most closely matches your DNA, based on key trait SNPs.</i>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("## ancestry results")
+    st.markdown(
+        '<div class="info-box">'
+        '<b>How are your ancestry results calculated?</b><br>'
+        'We compare your DNA to a set of reference populations for each region. '
+        'For each region, we average the DNA patterns from all its reference groups. '
+        'Then, we figure out what combination of these regions best matches your DNA, '
+        'using a method that ensures all percentages are positive and add up to 100%.<br><br>'
+        '<i>In short: Your results show the mix of reference regions that most closely '
+        'matches your DNA, based on key trait SNPs.</i>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-    # Display all ancestries in card format
+    # ── Ancestry breakdown ─────────────────────────────────────────────────────
     st.markdown("### ancestry breakdown")
     for _, row in mix_df.iterrows():
         region = row['Region']
         proportion = row['Proportion']
-        if proportion > 0.001:  # Only show if > 0.1%
+        if proportion > 0.001:
             color = REGION_COLOURS.get(region, '#4a3f8a')
-            st.markdown(f"""
-            <div class="ancestry-item" style="border-color: {color};">
-                <div class="ancestry-item-label">{region}</div>
-                <div class="ancestry-item-value">{proportion*100:.1f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="ancestry-item" style="border-color: {color};">'
+                f'<div class="ancestry-item-label">{region}</div>'
+                f'<div class="ancestry-item-value">{proportion * 100:.1f}%</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-    # Reference populations section
+    # ── Reference populations (shown after results) ────────────────────────────
     st.markdown("### reference populations")
-    ref_html = '<div class="ref-populations"><h4>Populations used in analysis</h4>'
-    for region, groups in REF_GROUPS.items():
-        color = REGION_COLOURS.get(region, '#7a749a')
-        ref_html += f'<div class="ref-region">'
-        ref_html += f'<div class="ref-region-name" style="color: {color};">{region}</div>'
-        ref_html += f'<div class="ref-groups">{", ".join(groups)}</div>'
-        ref_html += '</div>'
-    ref_html += '</div>'
-    st.markdown(ref_html, unsafe_allow_html=True)
+    render_ref_populations()
 
 
 if __name__ == "__main__":
