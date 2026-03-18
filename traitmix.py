@@ -271,18 +271,16 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown(
+        '''<div class="privacy-notice">'🔒' <b>Privacy notice:</b> Your genetic data is never stored or uploaded. All processing happens locally in your browser and is not retained.</div>''',
+        unsafe_allow_html=True,
+    )
+
     # ── File uploader ──────────────────────────────────────────────────────────
     raw_file = st.file_uploader(
         "Upload your 23andMe or Ancestry raw data (.txt)", type=["txt"])
 
     if not raw_file:
-        st.markdown(
-            '<div class="info-box">'
-            'Upload your raw DNA file above to run admixture estimation.<br>'
-            'Supported formats: 23andMe v3/v5, Ancestry.com raw data.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
         st.markdown("### reference populations")
         render_ref_populations()
         return
