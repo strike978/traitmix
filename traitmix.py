@@ -64,12 +64,13 @@ REF_GROUPS = {
         'Gambian in Western Divisions in the Gambia',
         'Mende in Sierra Leone',
     ],
-    'African Hunter-Gatherer': [
-        'San', 'Biaka', 'Mbuti',
-    ],
+    # 'African Hunter-Gatherer': [
+    #     'San', 'Biaka', 'Mbuti',
+    # ],
     'Indigenous American': [
         'Surui', 'Pima', 'Colombian', 'Karitiana',
-        'Peruvian in Lima, Peru', 'Maya',
+        'Maya',
+        # 'Peruvian in Lima, Peru',
     ],
     'Siberian': [
         'Daur', 'Hezhen', 'Oroqen', 'Mongolian', 'Yakut',
@@ -356,12 +357,11 @@ def main():
     st.markdown(
         '<div class="info-box">'
         '<b>How are your ancestry results calculated?</b><br>'
-        'We compare your DNA to a set of reference populations for each region. '
-        'For each region, we average the DNA patterns from all its reference groups. '
-        'Then, we figure out what combination of these regions best matches your DNA, '
-        'using a method that ensures all percentages are positive and add up to 100%.<br><br>'
-        '<i>In short: Your results show the mix of reference regions that most closely '
-        'matches your DNA, based on key trait SNPs.</i>'
+        'We analyze your DNA by comparing it to a set of reference populations, each representing a different region of the world. '
+        'For each region, we combine genetic data from several groups to create an average DNA profile. '
+        'Next, we use a mathematical method to find the mix of these regions that best matches your DNA. '
+        'All percentages are positive and add up to 100%.<br><br>'
+        '<i>In short: Your results show which regions of the world your DNA most closely matches, based on a selected set of phenotypical trait markers.</i>'
         '</div>',
         unsafe_allow_html=True,
     )
