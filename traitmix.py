@@ -49,7 +49,7 @@ REF_GROUPS = {
         'PapuanHighlands', 'PapuanSepik', 'Bougainville',
     ],
     'West Asian': [
-        'Adygei', 'Druze', 'Sardinian', 'Mozabite', 'Bedouin', 'Palestinian',
+        'Adygei', 'Druze', 'Mozabite', 'Bedouin', 'Palestinian',
     ],
     'South Asian': [
         'Kalash', 'Bengali in Bangladesh', 'Indian Telugu in the UK',
@@ -226,8 +226,16 @@ def run_nnls(
     X: np.ndarray,
     y: np.ndarray,
     region_names: list[str],
+    w: np.ndarray = None,
 ) -> pd.DataFrame:
-    props, _ = nnls(X.T, y)
+    # Apply weights if provided
+    if w is not None:
+        Xw = X * w
+        yw = y * w
+    else:
+        Xw = X
+        yw = y
+    props, _ = nnls(Xw.T, yw)
     total = props.sum()
     props = props / \
         total if total > 0 else np.full(
@@ -293,6 +301,13 @@ def main():
             df, snp_cols, REF_GROUPS)
         col_means = X.mean(axis=0)
 
+        # Fst-proxy weights
+        between_var = np.var(X, axis=0)
+        within_var = np.mean(X * (1 - X), axis=0)
+        fst_weights = between_var / (between_var + within_var + 1e-9)
+        fst_weights = np.where(fst_weights > 0.05, fst_weights, 0.0)
+        w = np.sqrt(fst_weights)
+
     # Only count SNPs that have a valid minor allele as "in panel"
     # (SNPs where minor is None are uninformative and skipped during matching)
     valid_snp_count = int(np.sum(minor_alleles != None))
@@ -352,7 +367,7 @@ def main():
 
     # ── Run NNLS ───────────────────────────────────────────────────────────────
     with st.spinner("Running NNLS admixture…"):
-        mix_df = run_nnls(X, y, region_names)
+        mix_df = run_nnls(X, y, region_names, w)
 
     st.markdown("## ancestry results")
     st.markdown(
