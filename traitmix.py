@@ -66,7 +66,7 @@ REF_GROUPS = {
         'Surui', 'Pima', 'Colombian', 'Karitiana', 'Maya',
     ],
     'Siberian': [
-        'Daur', 'Hezhen', 'Oroqen', 'Mongolian', 'Yakut',
+        'Daur', 'Oroqen', 'Mongolian', 'Yakut',
     ],
     'East Asian': [
         'Lahu', 'Cambodian', 'Tujia', 'Miao',
