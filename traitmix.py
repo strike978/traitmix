@@ -298,7 +298,8 @@ def render_ref_populations():
 def main():
     with st.spinner("Loading reference panel…"):
         try:
-            df_raw = pd.read_csv("113_no_outliers.csv", na_values=['--', ''])
+            df_raw = pd.read_csv(
+                "genotypes_no_outliers.csv", na_values=['--', ''])
         except Exception as e:
             st.error(f"Could not load reference panel: {e}")
             return
@@ -400,7 +401,7 @@ def main():
         'to find the mixture of regions that best explains your allele frequencies, '
         'with SNPs weighted by how much they differ between regions (Fst). '
         'All percentages are positive and sum to 100%.<br><br>'
-        '<i>Results reflect broad population affinity based on 113 phenotypically '
+        '<i>Results reflect broad population affinity based on 114 phenotypically '
         'informative markers — not a genome-wide ancestry test.</i>'
         '</div>',
         unsafe_allow_html=True,
