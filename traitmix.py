@@ -63,6 +63,7 @@ REF_GROUPS = {
         'Luhya in Webuye, Kenya',
         'Gambian in Western Divisions in the Gambia',
         'Mende in Sierra Leone',
+        'San', 'Biaka', 'Mbuti'
     ],
     # 'African Hunter-Gatherer': [
     #     'San', 'Biaka', 'Mbuti',
